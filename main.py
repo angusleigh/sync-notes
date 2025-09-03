@@ -15,7 +15,7 @@ LOCAL_FOLDER = "/home/angus/synced-gdrive"  # Change this to your desired folder
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
 CREDENTIALS_FILE = 'credentials.json'
 TOKEN_FILE = 'token.pickle'
-DRIVE_FOLDER_NAME = 'synced-files'
+DRIVE_FOLDER_NAME = 'backup-gs65'
 
 class FileSyncHandler(FileSystemEventHandler):
     def __init__(self, drive_service, drive_folder_id):

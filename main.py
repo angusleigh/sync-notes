@@ -1,6 +1,7 @@
 import os
 import pickle
 import mimetypes
+import hashlib
 from pathlib import Path
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -14,14 +15,23 @@ CREDENTIALS_FILE = 'credentials.json'
 TOKEN_FILE = 'token.pickle'
 DRIVE_FOLDER_NAME = 'backup-gs65'
 
+def get_file_md5(file_path):
+    """Calculate MD5 checksum of local file"""
+    hash_md5 = hashlib.md5()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
+
 def upload_file(drive_service, drive_folder_id, file_path):
     try:
         file_name = Path(file_path).name
+        local_md5 = get_file_md5(file_path)
         
         # Check if file already exists in Drive
         existing_files = drive_service.files().list(
             q=f"name='{file_name}' and parents in '{drive_folder_id}' and trashed=false",
-            fields="files(id, name)"
+            fields="files(id, name, md5Checksum)"
         ).execute()
         
         # Detect MIME type
@@ -32,8 +42,15 @@ def upload_file(drive_service, drive_folder_id, file_path):
         media = MediaFileUpload(file_path, mimetype=mime_type)
         
         if existing_files.get('files'):
-            # Update existing file
+            # File exists - check if it has changed
             file_id = existing_files['files'][0]['id']
+            drive_md5 = existing_files['files'][0].get('md5Checksum')
+            
+            if drive_md5 == local_md5:
+                print(f"Skipped {file_name} (unchanged)")
+                return
+            
+            # Update existing file
             drive_service.files().update(
                 fileId=file_id,
                 media_body=media
